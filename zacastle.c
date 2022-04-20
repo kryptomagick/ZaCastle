@@ -37,14 +37,12 @@ int main(int argc, char *argv[]) {
             oriasDecryptFileCBC(infileName, outfileName, fileLen, passphrase, passphraseLen);
         }
     }
-/*
     else if (strcmp(algorithm, "orias-ofb") == 0) {
         if (strcmp(mode, encryptMode) == 0) {
-            oriasEncryptFileOFB(filename, fileLen, passphrase);
+            oriasEncryptFileOFB(infileName, outfileName, fileLen, passphrase, passphraseLen);
         }
-        else if (strcmp(mode, encryptMode) == 0) {
-            oriasDecryptFileOFB(filename, fileLen, passphrase);
+        else if (strcmp(mode, decryptMode) == 0) {
+            oriasDecryptFileOFB(infileName, outfileName, fileLen, passphrase, passphraseLen);
         }
     }
-*/
 }

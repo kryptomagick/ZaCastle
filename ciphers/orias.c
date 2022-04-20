@@ -6,7 +6,6 @@ int oriasS0[26] = {11, 0, 15, 4, 19, 8, 23, 12, 1, 16, 5, 20, 9, 24, 13, 2, 17, 
 int oriasS0i[26] = {1, 8, 15, 22, 3, 10, 17, 24, 5, 12, 19, 0, 7, 14, 21, 2, 9, 16, 23, 4, 11, 18, 25, 6, 13, 20};
 /* Poly Generated Affine Box */
 int oriasA0[12] = {21, 9, 3, 7};
-/* int oriasA0[12] = {21, 9, 3, 7, 1, 15, 23, 5, 17, 19, 25, 11}; */
 /* Inverse Poly Generated Affine Box */
 int oriasA0i[12] = {5, 3, 9, 15};
 /* Poly Generated Mix Selection Box */
@@ -208,7 +207,6 @@ void oriasKDF(struct oriasKDFState *state, char *src, int srcLen) {
     }
     for (int t = 0; t < state->hashlen; t++) {
         state->hashOutput[t] = state->h[t] + 65;
-        //printf("%d\n", state->hashOutput[t]);
     }
 }
 
@@ -220,7 +218,7 @@ void oriasEncryptFileCBC(char *inFilename, char *outFilename, int filesize, char
     fseek(infile, filesize - 1, 0);
     int btype;
     fread(&btype, 1, 1, infile);
-    if ((btype > 90) || (btype <= 65)) {
+    if ((btype > 90) || (btype < 65)) {
         filesize -= 1;
     }
     fseek(infile, 0, 0);
@@ -311,9 +309,104 @@ void oriasDecryptFileCBC(char *inFilename, char *outFilename, int filesize, char
             }
             if (padchk == pad) {
                 blocklen = (state.blocklen - pad);
-                printf("padcheck success %d\n", padchk);
             }
         }
+        fwrite(blockU8, 1, blocklen, outfile);
+    }
+    fclose(infile);
+    fclose(outfile);
+}
+
+void oriasEncryptFileOFB(char *inFilename, char *outFilename, int filesize, char *passphrase, int passphraseLen) {
+    FILE *infile, *outfile;
+    infile = fopen(inFilename, "r");
+    outfile = fopen(outFilename, "w");
+    fseek(infile, filesize - 1, 0);
+    int btype;
+    fread(&btype, 1, 1, infile);
+    if ((btype > 90) || (btype < 65)) {
+        filesize -= 1;
+    }
+    fseek(infile, 0, 0);
+    struct oriasState state;
+    oriasInitState(&state);
+    uint8_t blockU8[state.blocklen];
+    int block[state.blocklen];
+    int blocks = filesize / state.blocklen;
+    int blockExtra = filesize % state.blocklen;
+    int blocklen = state.blocklen;
+    int padding = state.blocklen - blockExtra;
+    if (filesize < state.blocklen) {
+        blocks += 1;
+    }
+    if (blockExtra != 0) {
+        blocks += 1;
+    }
+    int x, y, z, pad;
+    int iv[state.blocklen];
+    uint8_t ivU8[state.blocklen];
+    int pass[state.blocklen];
+    getRandomAZ(ivU8, state.blocklen);
+    convertU8toInts(ivU8, iv, state.blocklen);
+    struct oriasKDFState kdfState;
+    convertPassphrasetoInts(passphrase, pass, passphraseLen);
+    oriasKDF(&kdfState, passphrase, passphraseLen);
+    oriasKeyScheduler(&state, kdfState.hashOutput);
+    fwrite(ivU8, 1, state.blocklen, outfile);
+    memcpy(state.block, iv, (state.blocklen * sizeof(int)));
+    for (x = 0; x < blocks; x++) {
+        if ((x == (blocks - 1)) && ((blockExtra != 0))) {
+            blocklen = blockExtra;
+        }
+        fread(blockU8, 1, blocklen, infile);
+        convertU8toInts(blockU8, block, blocklen);
+        oriasEncryptBlock(&state);
+        modaddArray(block, state.block, blocklen);
+        convertIntstoU8(block, blockU8, blocklen);
+        fwrite(blockU8, 1, blocklen, outfile);
+    }
+    fclose(infile);
+    fclose(outfile);
+}
+
+void oriasDecryptFileOFB(char *inFilename, char *outFilename, int filesize, char *passphrase, int passphraseLen) {
+    FILE *infile, *outfile;
+    infile = fopen(inFilename, "r");
+    outfile = fopen(outFilename, "w");
+    struct oriasState state;
+    oriasInitState(&state);
+    int block[state.blocklen];
+    uint8_t blockU8[state.blocklen];
+    filesize = filesize - state.ivlen;
+    int blocks = filesize / state.blocklen;
+    int blockExtra = filesize % state.blocklen;
+    int blocklen = state.blocklen;
+    if (filesize < state.blocklen) {
+        blocks += 1;
+    }
+    if (blockExtra != 0) {
+        blocks += 1;
+    }
+    int x, y, z, pad;
+    int pass[passphraseLen];
+    convertPassphrasetoInts(passphrase, pass, passphraseLen);
+    int iv[state.blocklen];
+    uint8_t ivU8[state.blocklen];
+    struct oriasKDFState kdfState;
+    oriasKDF(&kdfState, passphrase, passphraseLen);
+    oriasKeyScheduler(&state, kdfState.hashOutput);
+    fread(ivU8, 1, state.ivlen, infile);
+    convertU8toInts(ivU8, iv, state.blocklen);
+    memcpy(state.block, iv, (state.blocklen * sizeof(int)));
+    for (x = 0; x < blocks; x++) {
+        if ((x == blocks - 1) && (blockExtra != 0)) {
+            blocklen = blockExtra;
+        }
+        fread(blockU8, 1, blocklen, infile);
+        convertU8toInts(blockU8, block, blocklen);
+        oriasEncryptBlock(&state);
+        modsubArray(block, state.block, blocklen);
+        convertIntstoU8(block, blockU8, blocklen);
         fwrite(blockU8, 1, blocklen, outfile);
     }
     fclose(infile);
