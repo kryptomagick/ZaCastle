@@ -26,14 +26,11 @@ int main(int argc, char *argv[]) {
     isFile(infileName);
     long fileLen = getFileSize(infileName);
     int passphraseLen = strlen(passphrase);
-    //int passphraseLen = collectPassphrase(passphrase);
     if (strcmp(algorithm, "orias-cbc") == 0) {
         if (strcmp(mode, encryptMode) == 0) {
-            printf("enc\n");
             oriasEncryptFileCBC(infileName, outfileName, fileLen, passphrase, passphraseLen);
         }
         else if (strcmp(mode, decryptMode) == 0) {
-            printf("dec\n");
             oriasDecryptFileCBC(infileName, outfileName, fileLen, passphrase, passphraseLen);
         }
     }
