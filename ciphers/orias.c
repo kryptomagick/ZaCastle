@@ -214,10 +214,10 @@ void oriasEncryptFileCBC(char *inFilename, char *outFilename, int filesize, char
     FILE *infile, *outfile;
     infile = fopen(inFilename, "r");
     outfile = fopen(outFilename, "w");
-    fseek(infile, filesize - 1, 0);
-    int btype;
-    fread(&btype, 1, 1, infile);
-    if ((btype > 90) || (btype < 65)) {
+    fseek(infile, (filesize - 1), 0);
+    uint8_t btmp;
+    fread(&btmp, 1, 1, infile);
+    if ((btmp > 90) || (btmp < 65)) {
         filesize -= 1;
     }
     fseek(infile, 0, 0);
@@ -298,9 +298,10 @@ void oriasDecryptFileCBC(char *inFilename, char *outFilename, int filesize, char
         if (x == blocks - 1) {
             int l = state.blocklen - 1;
             int pad = state.block[l];
-            int padchk = 0;
-            z = l;
-            while (z > pad) {
+            int padchk = 1;
+            z = l - 1;
+            int padding = state.blocklen - pad - 1;
+            while (z != padding) {
                if (state.block[z] == pad) {
                    padchk += 1;
                }
