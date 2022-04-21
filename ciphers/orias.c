@@ -248,7 +248,7 @@ void oriasEncryptFileCBC(char *inFilename, char *outFilename, int filesize, char
     memcpy(state.last, iv, (state.blocklen * sizeof(int)));
     for (x = 0; x < blocks; x++) {
         if ((x == (blocks - 1)) && ((blockExtra != 0))) {
-            for (y = (state.blocklen - 1); y != blockExtra - 1; y--) {
+            for (y = (state.blocklen - 1); y != (blockExtra - 1); y--) {
                 state.block[y] = padding;
             }
             blocklen = blockExtra;
@@ -298,13 +298,13 @@ void oriasDecryptFileCBC(char *inFilename, char *outFilename, int filesize, char
         if (x == blocks - 1) {
             int l = state.blocklen - 1;
             int pad = state.block[l];
-            int padchk = 1;
-            z = 0;
-            while (z != pad) {
+            int padchk = 0;
+            z = l;
+            while (z > pad) {
                if (state.block[z] == pad) {
                    padchk += 1;
                }
-               z += 1;
+               z -= 1;
             }
             if (padchk == pad) {
                 blocklen = (state.blocklen - pad);
@@ -335,12 +335,6 @@ void oriasEncryptFileOFB(char *inFilename, char *outFilename, int filesize, char
     int blockExtra = filesize % state.blocklen;
     int blocklen = state.blocklen;
     int padding = state.blocklen - blockExtra;
-    if (filesize < state.blocklen) {
-        blocks += 1;
-    }
-    if (blockExtra != 0) {
-        blocks += 1;
-    }
     int x, y, z, pad;
     int iv[state.blocklen];
     uint8_t ivU8[state.blocklen];
