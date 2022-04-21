@@ -211,7 +211,6 @@ void oriasKDF(struct oriasKDFState *state, char *src, int srcLen) {
 }
 
 void oriasEncryptFileCBC(char *inFilename, char *outFilename, int filesize, char *passphrase, int passphraseLen) {
-    filesize -= 1;
     FILE *infile, *outfile;
     infile = fopen(inFilename, "r");
     outfile = fopen(outFilename, "w");
