@@ -25,7 +25,7 @@ int oriasKeyLen = 26;
 /* Initalization Vector Length */
 int oriasIVLen = 26;
 /* Block Rotation Vector */
-int oriasROT = 4;
+int oriasROT = 2;
 /* Key Scheduler Constants */
 int oriasC0[26] = {7, 9, 11, 4, 6, 8, 10, 12, 14, 2, 0, 1, 3, 5, 20, 21, 22, 25, 23, 24, 19, 18, 17, 16, 15, 13};
 
