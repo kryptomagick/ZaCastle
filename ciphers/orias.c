@@ -5,9 +5,9 @@ int oriasS0[26] = {11, 0, 15, 4, 19, 8, 23, 12, 1, 16, 5, 20, 9, 24, 13, 2, 17, 
 /* Inverse Poly Generated Substitution Box */
 int oriasS0i[26] = {1, 8, 15, 22, 3, 10, 17, 24, 5, 12, 19, 0, 7, 14, 21, 2, 9, 16, 23, 4, 11, 18, 25, 6, 13, 20};
 /* Poly Generated Affine Box */
-int oriasA0[12] = {21, 9, 3, 7};
+int oriasA0[12] = {21, 9};
 /* Inverse Poly Generated Affine Box */
-int oriasA0i[12] = {5, 3, 9, 15};
+int oriasA0i[12] = {5, 3};
 /* Poly Generated Mix Selection Box */
 int oriasM0[26] = {16, 18, 20, 22, 24, 14, 13, 15, 17, 19, 21, 23, 25, 3, 5, 7, 9, 11, 1, 0, 2, 4, 6, 8, 10, 12};
 /* Round key Vectors */
@@ -19,7 +19,7 @@ int oriasBlockLen = 26;
 /* Half Block Length */
 int oriasHalfLen = 13;
 /* Affine Box Length */
-int oriasALen = 4;
+int oriasALen = 2;
 /* Key Length */
 int oriasKeyLen = 26;
 /* Initalization Vector Length */
