@@ -228,10 +228,7 @@ void oriasEncryptFileCBC(char *inFilename, char *outFilename, int filesize, char
     int blockExtra = filesize % state.blocklen;
     int blocklen = state.blocklen;
     int padding = state.blocklen - blockExtra;
-    if (filesize < state.blocklen) {
-        blocks += 1;
-    }
-    if (blockExtra != 0) {
+    if ((filesize < state.blocklen) || (blockExtra != 0)) {
         blocks += 1;
     }
     int x, y, z, pad;
@@ -335,8 +332,10 @@ void oriasEncryptFileOFB(char *inFilename, char *outFilename, int filesize, char
     int blocks = filesize / state.blocklen;
     int blockExtra = filesize % state.blocklen;
     int blocklen = state.blocklen;
-    int padding = state.blocklen - blockExtra;
-    int x, y, z, pad;
+    if ((filesize < state.blocklen) || (blockExtra != 0)) {
+        blocks += 1;
+    }
+    int x, y, z;
     int iv[state.blocklen];
     uint8_t ivU8[state.blocklen];
     int pass[state.blocklen];
@@ -375,13 +374,10 @@ void oriasDecryptFileOFB(char *inFilename, char *outFilename, int filesize, char
     int blocks = filesize / state.blocklen;
     int blockExtra = filesize % state.blocklen;
     int blocklen = state.blocklen;
-    if (filesize < state.blocklen) {
+    if ((filesize < state.blocklen) || (blockExtra != 0)) {
         blocks += 1;
     }
-    if (blockExtra != 0) {
-        blocks += 1;
-    }
-    int x, y, z, pad;
+    int x, y, z;
     int pass[passphraseLen];
     convertPassphrasetoInts(passphrase, pass, passphraseLen);
     int iv[state.blocklen];

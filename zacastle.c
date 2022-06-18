@@ -5,14 +5,15 @@
 #include <string.h>
 #include "common/common.c"
 #include "ciphers/orias.c"
+#include "ciphers/violetb.c"
 
 /* ZaCastle A-Z Cipher System by Karl Zander */
-float version = 0.1;
+float version = 0.2;
 
 void ZaCastleUsage(float version) {
     printf("ZaCastle v%.1f - by Karl Zander (zaamunzaamun@gmail.com)\n\n", version);
-    printf("Usage:\nzacastle <algorithm> -e <input file> <output file> <public keyfile> <secret keyfile>\n");
-    printf("zacastle <algorithm> -d <input file> <output file> <secret keyfile> <public keyfile>\n");
+    printf("Algorithms:\norias-cbc\norias-ofb\nvioletb\n\n");
+    printf("Usage:\nzacastle <algorithm> <-e/-d> <input file> <output file> <passphrase>\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -46,4 +47,13 @@ int main(int argc, char *argv[]) {
             oriasDecryptFileOFB(infileName, outfileName, fileLen, passphrase, passphraseLen);
         }
     }
+    else if (strcmp(algorithm, "violetb") == 0) {
+        if (strcmp(mode, encryptMode) == 0) {
+            violetbEncryptFile(infileName, outfileName, fileLen, passphrase, passphraseLen);
+        }
+        else if (strcmp(mode, decryptMode) == 0) {
+            violetbDecryptFile(infileName, outfileName, fileLen, passphrase, passphraseLen);
+        }
+    }
+
 }
