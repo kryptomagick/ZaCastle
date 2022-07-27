@@ -4,14 +4,15 @@
 #include <stdint.h>
 #include <string.h>
 #include "common/common.c"
+#include "ciphers/hex.c"
 #include "ciphers/orias.c"
 #include "ciphers/violetb.c"
 
 /* ZaCastle A-Z Cipher System by Karl Zander */
-float version = 0.2;
+float version = 0.3;
 
 void ZaCastleUsage(float version) {
-    printf("ZaCastle v%.1f - by Karl Zander (zaamunzaamun@gmail.com)\n\n", version);
+    printf("ZaCastle v%.1f - by Karl Zander\n\n", version);
     printf("Algorithms:\norias-cbc\norias-ofb\nvioletb\n\n");
     printf("Usage:\nzacastle <algorithm> <-e/-d> <input file> <output file> <passphrase>\n");
 }
@@ -25,7 +26,7 @@ int main(int argc, char *argv[]) {
     char *mode = argv[2];
     char *infileName = argv[3];
     char *outfileName = argv[4];
-    char *passphrase = argv[5];
+    unsigned char *passphrase = argv[5];
     char *encryptMode = "-e";
     char *decryptMode = "-d";
     isFile(infileName);

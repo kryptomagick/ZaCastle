@@ -21,15 +21,13 @@ struct violetbState {
 void violetbInitState(struct violetbState *state) {
     state->rounds = 20;
     state->blocklen = 26;
-    state->keylen = 26;
+    state->keylen = 52;
     state->ivlen = 52;
 }
 
 void violetbKeySetup(struct violetbState * state, int * key, int keylen, int *nonce, int noncelen) {
     int i, a;
     int c = 0;
-    int k[keylen];
-    int n[noncelen];
     for (int x = 0; x < 4; x++) {
         for (int y = 0; y < 13; y++) {
             state->CELLS[x][y] = 0;
@@ -140,13 +138,13 @@ void violetbEncryptFile(char *inFilename, char *outFilename, int filesize, char 
     int iv[state.ivlen];
     int k[state.keylen];
     uint8_t ivU8[state.ivlen];
+    uint8_t keyU8[state.keylen];
     int pass[state.blocklen];
     getRandomAZ(ivU8, state.ivlen);
     convertU8toInts(ivU8, iv, state.ivlen);
-    struct oriasKDFState kdfState;
     convertPassphrasetoInts(passphrase, pass, passphraseLen);
-    oriasKDF(&kdfState, passphrase, passphraseLen);
-    convertU8toInts(kdfState.hashOutput, k, state.keylen);
+    hexKDF(keyU8, state.keylen, passphrase, passphraseLen);
+    convertU8toInts(keyU8, k, state.keylen);
     violetbKeySetup(&state, k, state.keylen, iv, state.ivlen);
     fwrite(ivU8, 1, state.ivlen, outfile);
     for (x = 0; x < blocks; x++) {
@@ -185,9 +183,9 @@ void violetbDecryptFile(char *inFilename, char *outFilename, int filesize, char 
     int iv[state.ivlen];
     int k[state.keylen];
     uint8_t ivU8[state.ivlen];
-    struct oriasKDFState kdfState;
-    oriasKDF(&kdfState, passphrase, passphraseLen);
-    convertU8toInts(kdfState.hashOutput, k, state.keylen);
+    uint8_t keyU8[state.keylen];
+    hexKDF(keyU8, state.keylen, passphrase, passphraseLen);
+    convertU8toInts(keyU8, k, state.keylen);
     fread(ivU8, 1, state.ivlen, infile);
     convertU8toInts(ivU8, iv, state.ivlen);
     violetbKeySetup(&state, k, state.keylen, iv, state.ivlen);

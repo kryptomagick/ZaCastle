@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-O3 -w -std=c99
+CFLAGS=-O3 -w -std=c99 -ggdb
 TARGET=zacastle
 all: $(TARGET)
 
