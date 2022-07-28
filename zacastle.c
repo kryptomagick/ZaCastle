@@ -9,7 +9,7 @@
 #include "ciphers/violetb.c"
 
 /* ZaCastle A-Z Cipher System by Karl Zander */
-float version = 0.3;
+float version = 0.4;
 
 void ZaCastleUsage(float version) {
     printf("ZaCastle v%.1f - by Karl Zander\n\n", version);
@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
     char *mode = argv[2];
     char *infileName = argv[3];
     char *outfileName = argv[4];
-    unsigned char *passphrase = argv[5];
+    char *passphrase = argv[5];
     char *encryptMode = "-e";
     char *decryptMode = "-d";
     isFile(infileName);

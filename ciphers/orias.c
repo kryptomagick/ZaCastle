@@ -163,7 +163,7 @@ void oriasDecryptBlock(struct oriasState *state) {
    }
 }
 
-void oriasEncryptFileCBC(char *inFilename, char *outFilename, int filesize, uint8_t *passphrase, int passphraseLen) {
+void oriasEncryptFileCBC(char *inFilename, char *outFilename, int filesize, char *passphrase, int passphraseLen) {
     FILE *infile, *outfile;
     infile = fopen(inFilename, "r");
     outfile = fopen(outFilename, "w");
@@ -175,7 +175,7 @@ void oriasEncryptFileCBC(char *inFilename, char *outFilename, int filesize, uint
     }
     fseek(infile, 0, 0);
     struct oriasState state;
-    oriasInitState(&state, 52);
+    oriasInitState(&state, oriasKeyLen);
     uint8_t blockU8[state.blocklen];
     int blocks = filesize / state.blocklen;
     int blockExtra = filesize % state.blocklen;
@@ -188,14 +188,19 @@ void oriasEncryptFileCBC(char *inFilename, char *outFilename, int filesize, uint
     int iv[state.blocklen];
     uint8_t ivU8[state.blocklen];
     uint8_t keyU8[state.keylen];
+    uint8_t mackeyU8[state.keylen];
     int pass[state.blocklen];
     getRandomAZ(ivU8, state.blocklen);
     convertU8toInts(ivU8, iv, state.blocklen);
     convertPassphrasetoInts(passphrase, pass, passphraseLen);
     hexKDF(keyU8, state.keylen, passphrase, passphraseLen);
+    hexKDF(mackeyU8, state.keylen, keyU8, state.keylen);
     oriasKeyScheduler(&state, keyU8);
     fwrite(ivU8, 1, state.blocklen, outfile);
     memcpy(state.last, iv, (state.blocklen * sizeof(int)));
+    struct hexState macState;
+    hexHMACIncrementalInit(&macState, mackeyU8, state.keylen);
+    uint8_t tag[HEX_TAGLEN];
     for (x = 0; x < blocks; x++) {
         if ((x == (blocks - 1)) && ((blockExtra != 0))) {
             for (y = (state.blocklen - 1); y != (blockExtra - 1); y--) {
@@ -207,10 +212,15 @@ void oriasEncryptFileCBC(char *inFilename, char *outFilename, int filesize, uint
         convertU8toInts(blockU8, state.block, blocklen);
         modaddArray(state.block, state.last, state.blocklen);
         oriasEncryptBlock(&state);
+        int macblock[26] = {0};
+        memcpy(macblock, state.block, state.blocklen * sizeof(int));
+        hexHMACIncrementalUpdate(&macState, macblock);
         convertIntstoU8(state.block, blockU8, state.blocklen);
         memcpy(state.last, state.block, (state.blocklen * sizeof(int)));
         fwrite(blockU8, 1, state.blocklen, outfile);
     }
+    hexHMACOutput(&macState, tag, HEX_TAGLEN);
+    fwrite(tag, 1, HEX_TAGLEN, outfile);
     fclose(infile);
     fclose(outfile);
 }
@@ -220,9 +230,9 @@ void oriasDecryptFileCBC(char *inFilename, char *outFilename, int filesize, char
     infile = fopen(inFilename, "r");
     outfile = fopen(outFilename, "w");
     struct oriasState state;
-    oriasInitState(&state, 52);
+    oriasInitState(&state, oriasKeyLen);
     uint8_t blockU8[state.blocklen];
-    filesize = filesize - state.ivlen;
+    filesize = filesize - state.ivlen - HEX_TAGLEN;
     int blocks = filesize / state.blocklen;
     int blockExtra = filesize % state.blocklen;
     int blocklen = state.blocklen;
@@ -232,14 +242,22 @@ void oriasDecryptFileCBC(char *inFilename, char *outFilename, int filesize, char
     int iv[state.blocklen];
     uint8_t ivU8[state.blocklen];
     uint8_t keyU8[state.keylen];
+    uint8_t mackeyU8[state.keylen];
     hexKDF(keyU8, state.keylen, passphrase, passphraseLen);
+    hexKDF(mackeyU8, state.keylen, keyU8, state.keylen);
     oriasKeyScheduler(&state, keyU8);
     fread(ivU8, 1, state.ivlen, infile);
     convertU8toInts(ivU8, iv, state.blocklen);
     memcpy(state.last, iv, (state.blocklen * sizeof(int)));
+    struct hexState macState;
+    hexHMACIncrementalInit(&macState, mackeyU8, state.keylen);
+    uint8_t tag[HEX_TAGLEN];
     for (x = 0; x < blocks; x++) {
         fread(blockU8, 1, state.blocklen, infile);
         convertU8toInts(blockU8, state.block, state.blocklen);
+        int macblock[26] = {0};
+        memcpy(macblock, state.block, state.blocklen * sizeof(int));
+        hexHMACIncrementalUpdate(&macState, macblock);
         memcpy(state.next, state.block, (state.blocklen * sizeof(int)));
         oriasDecryptBlock(&state);
         modsubArray(state.block, state.last, state.blocklen);
@@ -263,8 +281,15 @@ void oriasDecryptFileCBC(char *inFilename, char *outFilename, int filesize, char
         }
         fwrite(blockU8, 1, blocklen, outfile);
     }
+    hexHMACOutput(&macState, tag, HEX_TAGLEN);
+    uint8_t tag2[HEX_TAGLEN];
+    fread(tag2, 1, HEX_TAGLEN, infile);
     fclose(infile);
     fclose(outfile);
+    if (hexHMACVerifyAlt(tag, tag2, HEX_TAGLEN) == 1) {
+        printf("Error: Message has been tampered with\n");
+        exit(1);
+    }
 }
 
 void oriasEncryptFileOFB(char *inFilename, char *outFilename, int filesize, char *passphrase, int passphraseLen) {
@@ -279,7 +304,7 @@ void oriasEncryptFileOFB(char *inFilename, char *outFilename, int filesize, char
     }
     fseek(infile, 0, 0);
     struct oriasState state;
-    oriasInitState(&state, 52);
+    oriasInitState(&state, oriasKeyLen);
     uint8_t blockU8[state.blocklen];
     int block[state.blocklen];
     int blocks = filesize / state.blocklen;
@@ -296,10 +321,15 @@ void oriasEncryptFileOFB(char *inFilename, char *outFilename, int filesize, char
     convertU8toInts(ivU8, iv, state.blocklen);
     convertPassphrasetoInts(passphrase, pass, passphraseLen);
     uint8_t keyU8[state.keylen];
+    uint8_t mackeyU8[state.keylen];
     hexKDF(keyU8, state.keylen, passphrase, passphraseLen);
+    hexKDF(mackeyU8, state.keylen, keyU8, state.keylen);
     oriasKeyScheduler(&state, keyU8);
     fwrite(ivU8, 1, state.blocklen, outfile);
     memcpy(state.block, iv, (state.blocklen * sizeof(int)));
+    struct hexState macState;
+    hexHMACIncrementalInit(&macState, mackeyU8, state.keylen);
+    uint8_t tag[HEX_TAGLEN];
     for (x = 0; x < blocks; x++) {
         if ((x == (blocks - 1)) && ((blockExtra != 0))) {
             blocklen = blockExtra;
@@ -308,9 +338,14 @@ void oriasEncryptFileOFB(char *inFilename, char *outFilename, int filesize, char
         convertU8toInts(blockU8, block, blocklen);
         oriasEncryptBlock(&state);
         modaddArray(block, state.block, blocklen);
+        int macblock[26] = {0};
+        memcpy(macblock, block, blocklen * sizeof(int));
+        hexHMACIncrementalUpdate(&macState, macblock);
         convertIntstoU8(block, blockU8, blocklen);
         fwrite(blockU8, 1, blocklen, outfile);
     }
+    hexHMACOutput(&macState, tag, HEX_TAGLEN);
+    fwrite(tag, 1, HEX_TAGLEN, outfile);
     fclose(infile);
     fclose(outfile);
 }
@@ -320,10 +355,10 @@ void oriasDecryptFileOFB(char *inFilename, char *outFilename, int filesize, char
     infile = fopen(inFilename, "r");
     outfile = fopen(outFilename, "w");
     struct oriasState state;
-    oriasInitState(&state, 52);
+    oriasInitState(&state, oriasKeyLen);
     int block[state.blocklen];
     uint8_t blockU8[state.blocklen];
-    filesize = filesize - state.ivlen;
+    filesize = filesize - state.ivlen - HEX_TAGLEN;
     int blocks = filesize / state.blocklen;
     int blockExtra = filesize % state.blocklen;
     int blocklen = state.blocklen;
@@ -336,22 +371,37 @@ void oriasDecryptFileOFB(char *inFilename, char *outFilename, int filesize, char
     int iv[state.blocklen];
     uint8_t ivU8[state.blocklen];
     uint8_t keyU8[state.keylen];
+    uint8_t mackeyU8[state.keylen];
     hexKDF(keyU8, state.keylen, passphrase, passphraseLen);
+    hexKDF(mackeyU8, state.keylen, keyU8, state.keylen);
     oriasKeyScheduler(&state, keyU8);
     fread(ivU8, 1, state.ivlen, infile);
     convertU8toInts(ivU8, iv, state.blocklen);
     memcpy(state.block, iv, (state.blocklen * sizeof(int)));
+    struct hexState macState;
+    hexHMACIncrementalInit(&macState, mackeyU8, state.keylen);
+    uint8_t tag[HEX_TAGLEN];
     for (x = 0; x < blocks; x++) {
         if ((x == blocks - 1) && (blockExtra != 0)) {
             blocklen = blockExtra;
         }
         fread(blockU8, 1, blocklen, infile);
         convertU8toInts(blockU8, block, blocklen);
+        int macblock[26] = {0};
+        memcpy(macblock, block, blocklen * sizeof(int));
+        hexHMACIncrementalUpdate(&macState, macblock);
         oriasEncryptBlock(&state);
         modsubArray(block, state.block, blocklen);
         convertIntstoU8(block, blockU8, blocklen);
         fwrite(blockU8, 1, blocklen, outfile);
     }
+    hexHMACOutput(&macState, tag, HEX_TAGLEN);
+    uint8_t tag2[HEX_TAGLEN];
+    fread(tag2, 1, HEX_TAGLEN, infile);
     fclose(infile);
     fclose(outfile);
+    if (hexHMACVerifyAlt(tag, tag2, HEX_TAGLEN) == 1) {
+        printf("Error: Message has been tampered with\n");
+        exit(1);
+    }
 }

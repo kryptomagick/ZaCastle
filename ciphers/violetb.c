@@ -112,7 +112,6 @@ void violetbModSubBlock(struct violetbState *state, int *block, int blocklen) {
     }
 }
 
-
 void violetbEncryptFile(char *inFilename, char *outFilename, int filesize, char *passphrase, int passphraseLen) {
     FILE *infile, *outfile;
     infile = fopen(inFilename, "r");
@@ -139,14 +138,19 @@ void violetbEncryptFile(char *inFilename, char *outFilename, int filesize, char 
     int k[state.keylen];
     uint8_t ivU8[state.ivlen];
     uint8_t keyU8[state.keylen];
+    uint8_t mackeyU8[state.keylen];
     int pass[state.blocklen];
     getRandomAZ(ivU8, state.ivlen);
     convertU8toInts(ivU8, iv, state.ivlen);
     convertPassphrasetoInts(passphrase, pass, passphraseLen);
     hexKDF(keyU8, state.keylen, passphrase, passphraseLen);
+    hexKDF(mackeyU8, state.keylen, keyU8, state.keylen);
     convertU8toInts(keyU8, k, state.keylen);
     violetbKeySetup(&state, k, state.keylen, iv, state.ivlen);
     fwrite(ivU8, 1, state.ivlen, outfile);
+    struct hexState macState;
+    hexHMACIncrementalInit(&macState, mackeyU8, state.keylen);
+    uint8_t tag[HEX_TAGLEN];
     for (x = 0; x < blocks; x++) {
         if ((x == (blocks - 1)) && ((blockExtra != 0))) {
             blocklen = blockExtra;
@@ -155,9 +159,14 @@ void violetbEncryptFile(char *inFilename, char *outFilename, int filesize, char 
         convertU8toInts(blockU8, block, blocklen);
         violetbUpdate(&state);
         violetbModAddBlock(&state, block, blocklen);
+        int macblock[26] = {0};
+        memcpy(macblock, block, blocklen * sizeof(int));
+        hexHMACIncrementalUpdate(&macState, macblock);
         convertIntstoU8(block, blockU8, blocklen);
         fwrite(blockU8, 1, blocklen, outfile);
     }
+    hexHMACOutput(&macState, tag, HEX_TAGLEN);
+    fwrite(tag, 1, HEX_TAGLEN, outfile);
     fclose(infile);
     fclose(outfile);
 }
@@ -170,7 +179,7 @@ void violetbDecryptFile(char *inFilename, char *outFilename, int filesize, char 
     violetbInitState(&state);
     int block[state.blocklen];
     uint8_t blockU8[state.blocklen];
-    filesize = filesize - state.ivlen;
+    filesize = filesize - state.ivlen - HEX_TAGLEN;
     int blocks = filesize / state.blocklen;
     int blockExtra = filesize % state.blocklen;
     int blocklen = state.blocklen;
@@ -184,22 +193,37 @@ void violetbDecryptFile(char *inFilename, char *outFilename, int filesize, char 
     int k[state.keylen];
     uint8_t ivU8[state.ivlen];
     uint8_t keyU8[state.keylen];
+    uint8_t mackeyU8[state.keylen];
     hexKDF(keyU8, state.keylen, passphrase, passphraseLen);
+    hexKDF(mackeyU8, state.keylen, keyU8, state.keylen);
     convertU8toInts(keyU8, k, state.keylen);
     fread(ivU8, 1, state.ivlen, infile);
     convertU8toInts(ivU8, iv, state.ivlen);
     violetbKeySetup(&state, k, state.keylen, iv, state.ivlen);
+    struct hexState macState;
+    hexHMACIncrementalInit(&macState, mackeyU8, state.keylen);
+    uint8_t tag[HEX_TAGLEN];
     for (x = 0; x < blocks; x++) {
         if ((x == blocks - 1) && (blockExtra != 0)) {
             blocklen = blockExtra;
         }
         fread(blockU8, 1, blocklen, infile);
         convertU8toInts(blockU8, block, blocklen);
+        int macblock[26] = {0};
+        memcpy(macblock, block, blocklen * sizeof(int));
+        hexHMACIncrementalUpdate(&macState, macblock);
         violetbUpdate(&state);
         violetbModSubBlock(&state, block, blocklen);
         convertIntstoU8(block, blockU8, blocklen);
         fwrite(blockU8, 1, blocklen, outfile);
     }
+    hexHMACOutput(&macState, tag, HEX_TAGLEN);
+    uint8_t tag2[HEX_TAGLEN];
+    fread(tag2, 1, HEX_TAGLEN, infile);
     fclose(infile);
     fclose(outfile);
+    if (hexHMACVerifyAlt(tag, tag2, HEX_TAGLEN) == 1) {
+        printf("Error: Message has been tampered with\n");
+        exit(1);
+    }
 }

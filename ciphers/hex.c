@@ -1,3 +1,7 @@
+/* Hex Hash Function by Karl Zander */
+
+int HEX_TAGLEN = 26;
+
 int hexC0[26] = {11, 19, 2, 0, 3, 22, 14, 7, 6, 9, 1, 13, 17, 23, 25, 18, 16, 12, 5, 4, 10, 8, 15, 20, 21, 24};
 
 struct hexState {
@@ -8,7 +12,6 @@ struct hexState {
     int iterations;
     int T[4][13];
     int H[4][13];
-    int block[52];
 };
 
 void hexInit(struct hexState *state) {
@@ -174,8 +177,8 @@ void hexAddLast(struct hexState *state) {
 }
 
 void hexUpdate(struct hexState *state, int *block) {
-    memcpy(state->H, state->T, 52 * sizeof(int));
     hexSoak(state, block);
+    memcpy(state->T, state->H, 52 * sizeof(int));
     for (int r = 0; r < state->rounds; r++) {
         hexMix0(state);
         rotateBlockLeft(state->H, 4, 1);
@@ -196,12 +199,12 @@ void hexRounds(struct hexState *state) {
 
 void hexOutput(struct hexState *state, uint8_t *output, int outputLen) {
     int c = 0;
-    int blocks = outputLen / 26;
-    int blockExtra = outputLen % 26;
-    int h[26];
+    int blocklen = state->inputlen;
+    int blocks = outputLen / blocklen;
+    int blockExtra = outputLen % blocklen;
+    int h[blocklen];
     int o[outputLen];
     memset(o, 0, outputLen * sizeof(int));
-    int blocklen = 26;
     int x = 0;
     int y = 0;
     for (int b = 0; b < blocks; b++) {
@@ -229,11 +232,7 @@ void hexKDF(uint8_t *hashOutput, int outLen, uint8_t *src, int srcLen) {
     int x = 0;
     int y = 0;
     int s[srcLen];
-    int o[outLen];
     memset(s, 0, srcLen * (sizeof(int)));
-    int outputBlocks = outLen / state.blocklen;
-    int outputBlocksExtra = outLen % state.blocklen;
-    int outputBlockLen = state.blocklen;
     convertU8toInts(src, s, srcLen);
     for (i = 0; i < srcLen; i++) {
         state.H[x][y] = modadd(state.H[x][y], s[i], 26);
@@ -251,7 +250,7 @@ void hexKDF(uint8_t *hashOutput, int outLen, uint8_t *src, int srcLen) {
 void hexHMACIncrementalInit(struct hexState *state, uint8_t *key, int keylen) {
     hexInit(state);
     int c = 0;
-    int blocklen = 26;
+    int blocklen = state->inputlen;
     int blocks = keylen / blocklen;
     int blockExtra = keylen % blocklen;
     for (int i = 0; i < blocks; i++) {
@@ -267,20 +266,21 @@ void hexHMACIncrementalInit(struct hexState *state, uint8_t *key, int keylen) {
     }
 }
 
-void hexHMACUpdate(struct hexState *state, uint8_t *block) {
+void hexHMACIncrementalUpdate(struct hexState *state, int *block) {
     hexUpdate(state, block);
 }
 
 void hexHMACOutput(struct hexState *state, uint8_t *tag, int tagLen) {
+    hexRounds(state);
     hexOutput(state, tag, tagLen);
 }
 
 void hexHMAC(uint8_t *msg, int msgLen, uint8_t key, int keylen, uint8_t *tag, int tagLen) {
     struct hexState state;
     hexInit(&state);
-    int blocks = msgLen / state.inputlen;
-    int blockExtra = msgLen % state.inputlen;
-    int blocklen = 26;
+    int blocklen = state.inputlen;
+    int blocks = msgLen / blocklen;
+    int blockExtra = msgLen % blocklen;
     int c = 0;
     for (int i = 0; i < blocks; i++) {
         if ((i == (blocks - 1)) && (blockExtra != 0)) {
@@ -316,7 +316,7 @@ int hexHMACVerify(uint8_t *msg, int msgLen, uint8_t *key, int keylen, uint8_t *t
     }
 }
 
-int hexHMACVerifyAlt(uint8_t tag0, uint8_t tag1, int tagLen) {
+int hexHMACVerifyAlt(uint8_t *tag0, uint8_t *tag1, int tagLen) {
     int tmp0 = 0;
     int tmp1 = 0;
     int t0[tagLen];
