@@ -80,9 +80,7 @@ void oriasKeyScheduler(struct oriasState *state, uint8_t *key) {
     memset(k, 0, state->keylen * (sizeof(int)));
     int p, y;
     int c = 0;
-    //int sk[state->keylen];
     convertU8toInts(key, k, state->keylen);
-    //modaddArray(sk, k, state->keylen);
     modaddArray(k, oriasC0, 26);
     for (int r = 0; r < state->rounds; r++) {
         for (int x = 0; x < state->blocklen; x++) {
@@ -91,7 +89,7 @@ void oriasKeyScheduler(struct oriasState *state, uint8_t *key) {
             k[c] = modadd(k[c], state->rk[r][x], 26);
             c = modadd(c, 1, state->keylen);
         }
-        //rotateBlockLeft(k, state->keylen, 3);
+        rotateBlockLeft(k, state->keylen, 3);
     }
 }
 
