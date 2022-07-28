@@ -163,72 +163,6 @@ void oriasDecryptBlock(struct oriasState *state) {
    }
 }
 
-struct oriasKDFState {
-    int blocklen;
-    int hashlen;
-    int iterations;
-    int h[26];
-    int t[26];
-};
-
-void oriasKDFInit(struct oriasKDFState *state) {
-    state->blocklen = 26;
-    state->hashlen = 26;
-    state->iterations = (26 * 26) + 1;
-    memset(state->h, 0, 26 * sizeof(int));
-    memset(state->t, 0, 26 * sizeof(int));
-}
-
-void oriasKDF(uint8_t *hashOutput, int outLen, uint8_t *src, int srcLen) {
-    struct oriasKDFState state;
-    struct oriasState cipherState;
-    oriasKDFInit(&state);
-    oriasInitState(&cipherState, 26);
-    uint8_t key[cipherState.keylen];
-    int i, x;
-    int k[srcLen];
-    int o[outLen];
-    memset(k, 0, srcLen * (sizeof(int)));
-    memset(o, 0, outLen * (sizeof(int)));
-    int outputBlocks = outLen / state.blocklen;
-    int outputBlocksExtra = outLen % state.blocklen;
-    int outputBlockLen = state.blocklen;
-    convertU8toInts(src, k, srcLen);
-    for (i = 0; i < outLen; i++) {
-        state.h[i] = modadd(state.h[i], k[i], 26);
-        state.t[i] = state.h[x];
-    }
-    convertIntstoU8(state.h, key, cipherState.keylen);
-    oriasKeyScheduler(&cipherState, key);
-    printf("kdf begin %d \n", state.blocklen);
-    for (i = 0; i < state.iterations; i++) {
-        memcpy(state.t, state.h, state.hashlen * (sizeof(int)));
-        oriasEncryptBlock(&cipherState);
-        printf("%d\n", i);
-        for (x = 0; x < state.hashlen; x++) {
-            state.h[x] = modadd(state.h[x], cipherState.block[mod(x, cipherState.blocklen)], 26);
-            state.h[x] = modadd(state.h[x], state.t[x], 26);
-        }
-    }
-    printf("kdf mid\n");
-    int c = 0;
-    for (i = 0; i < outputBlocks; i++) {
-        if ((i == outputBlocks - 1) && (outputBlocksExtra != 0)) {
-            outputBlockLen = outputBlocksExtra;
-        }
-        oriasEncryptBlock(&cipherState);
-        for (x = 0; x < outputBlockLen; x++) {
-            state.h[x] = modadd(state.h[x], cipherState.block[x], 26);
-            state.h[x] = modadd(state.h[x], state.t[x], 26);
-            state.t[x] = state.h[x];
-            o[c] = modadd(state.h[x], o[c], 26);
-            c += 1;
-        }
-    }
-    convertIntstoU8(o, hashOutput, outLen);
-    printf("kdf end\n");
-}
-
 void oriasEncryptFileCBC(char *inFilename, char *outFilename, int filesize, uint8_t *passphrase, int passphraseLen) {
     FILE *infile, *outfile;
     infile = fopen(inFilename, "r");
@@ -241,7 +175,7 @@ void oriasEncryptFileCBC(char *inFilename, char *outFilename, int filesize, uint
     }
     fseek(infile, 0, 0);
     struct oriasState state;
-    oriasInitState(&state, 26);
+    oriasInitState(&state, 52);
     uint8_t blockU8[state.blocklen];
     int blocks = filesize / state.blocklen;
     int blockExtra = filesize % state.blocklen;
@@ -286,7 +220,7 @@ void oriasDecryptFileCBC(char *inFilename, char *outFilename, int filesize, char
     infile = fopen(inFilename, "r");
     outfile = fopen(outFilename, "w");
     struct oriasState state;
-    oriasInitState(&state, 26);
+    oriasInitState(&state, 52);
     uint8_t blockU8[state.blocklen];
     filesize = filesize - state.ivlen;
     int blocks = filesize / state.blocklen;

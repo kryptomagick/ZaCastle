@@ -247,3 +247,90 @@ void hexKDF(uint8_t *hashOutput, int outLen, uint8_t *src, int srcLen) {
     }
     hexOutput(&state, hashOutput, outLen);
 }
+
+void hexHMACIncrementalInit(struct hexState *state, uint8_t *key, int keylen) {
+    hexInit(state);
+    int c = 0;
+    int blocklen = 26;
+    int blocks = keylen / blocklen;
+    int blockExtra = keylen % blocklen;
+    for (int i = 0; i < blocks; i++) {
+        if ((i == (blocks - 1)) && (blockExtra != 0)) {
+            blocklen = blockExtra;
+        }
+        int block[26] = {0};
+        for (int x = 0; x < blocklen; x++) {
+            block[x] = key[c] - 65;
+            c += 1;
+        }
+        hexUpdate(state, block);
+    }
+}
+
+void hexHMACUpdate(struct hexState *state, uint8_t *block) {
+    hexUpdate(state, block);
+}
+
+void hexHMACOutput(struct hexState *state, uint8_t *tag, int tagLen) {
+    hexOutput(state, tag, tagLen);
+}
+
+void hexHMAC(uint8_t *msg, int msgLen, uint8_t key, int keylen, uint8_t *tag, int tagLen) {
+    struct hexState state;
+    hexInit(&state);
+    int blocks = msgLen / state.inputlen;
+    int blockExtra = msgLen % state.inputlen;
+    int blocklen = 26;
+    int c = 0;
+    for (int i = 0; i < blocks; i++) {
+        if ((i == (blocks - 1)) && (blockExtra != 0)) {
+            blocklen = blockExtra;
+        }
+        int block[26] = {0};
+        for (int x = 0; x < blocklen; x++) {
+            block[x] = msg[c] - 65;
+            c += 1;
+        }
+        hexUpdate(&state, block);
+    }
+    hexOutput(&state, tag, tagLen);
+}
+
+int hexHMACVerify(uint8_t *msg, int msgLen, uint8_t *key, int keylen, uint8_t *tag, int tagLen, uint8_t *tag2) {
+    hexHMAC(msg, msgLen, key, keylen, tag, tagLen);
+    int tmp0 = 0;
+    int tmp1 = 0;
+    int t0[tagLen];
+    int t1[tagLen];
+    convertU8toInts(tag, t0, tagLen);
+    convertU8toInts(tag2, t1, tagLen);
+    for (int i = 0; i < tagLen; i++) {
+        tmp0 = modadd(tmp0, t0[i], 26);
+        tmp1 = modadd(tmp1, t1[i], 26);
+    }
+    if (tmp0 == tmp1) {
+        return 0;
+    }
+    else {
+        return 1;
+    }
+}
+
+int hexHMACVerifyAlt(uint8_t tag0, uint8_t tag1, int tagLen) {
+    int tmp0 = 0;
+    int tmp1 = 0;
+    int t0[tagLen];
+    int t1[tagLen];
+    convertU8toInts(tag0, t0, tagLen);
+    convertU8toInts(tag1, t1, tagLen);
+    for (int i = 0; i < tagLen; i++) {
+        tmp0 = modadd(tmp0, t0[i], 26);
+        tmp1 = modadd(tmp1, t1[i], 26);
+    }
+    if (tmp0 == tmp1) {
+        return 0;
+    }
+    else {
+        return 1;
+    }
+}
